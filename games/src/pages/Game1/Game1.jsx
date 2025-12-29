@@ -13,6 +13,7 @@ import OMusic from '../../assets/game1/music/O.mp3'
 import NMusic from '../../assets/game1/music/N.mp3'
 import FMusic from '../../assets/game1/music/F.mp3'
 import WMusic from '../../assets/game1/music/W.mp3'
+import { getHighScore, getTopScores, saveScore } from '../../utils/scoreManager'
 
 // 시리얼 통신 프로토콜 상수 및 클래스 (pre_code.jsx에서 가져옴)
 const HEXGL_MESSAGE_HEAD_CODE = 0xFD
@@ -140,6 +141,8 @@ function Game1({ onBackToHome }) {
     const [gameState, setGameState] = useState('waiting') // 'waiting' | 'playing' | 'finished'
     const [currentQuestion, setCurrentQuestion] = useState(1) // 현재 문제 번호
     const [score, setScore] = useState(0) // 점수
+    const [highScore, setHighScore] = useState(0) // 최고 점수
+    const [topScores, setTopScores] = useState([]) // Top 5 점수
     const [boxIndex, setBoxIndex] = useState(0) // 현재 활성 박스 인덱스 (0-7, 위 0-3, 아래 4-7)
     const [isTopRow, setIsTopRow] = useState(true) // 위 줄인지 아래 줄인지
     const [boxCommands, setBoxCommands] = useState([]) // 각 박스에 표시할 명령어 배열 (8개)
@@ -165,6 +168,7 @@ function Game1({ onBackToHome }) {
     const handleAllBoxesCompleteRef = useRef(null) // handleAllBoxesComplete 함수 ref
     const currentAudioRef = useRef(null) // 현재 재생 중인 오디오 ref
     const isStartingRef = useRef(false) // 박스 시퀀스 시작 중인지 체크 (중복 방지)
+    const hasSavedScoreRef = useRef(false) // 점수 저장 중복 방지
 
     // 음악 재생 함수 (duration 초 재생 후 정지)
     const playMusic = useCallback((musicSrc, duration = 2000) => {
@@ -322,11 +326,23 @@ function Game1({ onBackToHome }) {
         return mostRecentId
     }
 
+    // 최고 점수 로드
+    useEffect(() => {
+        const loadHighScore = async () => {
+            const result = await getHighScore('score_1')
+            if (result.success) {
+                setHighScore(result.highScore || 0)
+            }
+        }
+        loadHighScore()
+    }, [])
+
     // 게임 시작
     const startGame = () => {
         setScore(0)
         setCurrentQuestion(1)
         setGameState('playing')
+        hasSavedScoreRef.current = false // 점수 저장 플래그 초기화
         const newCorrect = new Set()
         setCorrect(newCorrect)
         correctRef.current = newCorrect
@@ -552,8 +568,22 @@ function Game1({ onBackToHome }) {
                         })
                         setWrongAnswerId(mostFrequentId)
                         setShowResultImage('X')
-                        setTimeout(() => {
+                        setTimeout(async () => {
                             setShowResultImage(null)
+                            // 점수 저장 및 Top 5 로드 (중복 방지)
+                            if (!hasSavedScoreRef.current) {
+                                hasSavedScoreRef.current = true
+                                await saveScore(score, 'score_1')
+                                const topResult = await getTopScores('score_1')
+                                if (topResult.success) {
+                                    setTopScores(topResult.topScores.map(item => ({ ...item, score_1: item.score_1 })))
+                                }
+                                // 최고 점수 업데이트
+                                const highResult = await getHighScore('score_1')
+                                if (highResult.success) {
+                                    setHighScore(highResult.highScore || 0)
+                                }
+                            }
                             setGameState('finished')
                         }, 1000)
                         return
@@ -614,8 +644,22 @@ function Game1({ onBackToHome }) {
                     })
                     setWrongAnswerId(mostFrequentId)
                     setShowResultImage('X')
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         setShowResultImage(null)
+                        // 점수 저장 및 Top 5 로드 (중복 방지)
+                        if (!hasSavedScoreRef.current) {
+                            hasSavedScoreRef.current = true
+                            await saveScore(score, 'score_1')
+                            const topResult = await getTopScores('score_1')
+                            if (topResult.success) {
+                                setTopScores(topResult.topScores.map(item => ({ ...item, score_1: item.score_1 })))
+                            }
+                            // 최고 점수 업데이트
+                            const highResult = await getHighScore('score_1')
+                            if (highResult.success) {
+                                setHighScore(highResult.highScore || 0)
+                            }
+                        }
                         setGameState('finished')
                     }, 1000)
                     return
@@ -970,6 +1014,7 @@ function Game1({ onBackToHome }) {
                             <div style={styles.gameInfo}>
                                 <div style={styles.infoItem}>문제 {currentQuestion}</div>
                                 <div style={styles.infoItem}>점수: {score}점</div>
+                                <div style={styles.infoItem}>최고점: {highScore}점</div>
                             </div>
                             {/* 뒤로가기 버튼 */}
                             <button
@@ -1186,8 +1231,31 @@ function Game1({ onBackToHome }) {
                         </div>
 
                         <div style={styles.scoreDisplay}>
-                            <div style={styles.scoreLabel}>총 점수</div>
+                            <div style={styles.scoreLabel}>내 점수</div>
                             <div style={styles.scoreValue}>{score}점</div>
+                        </div>
+
+                        {/* Top 5 점수 표시 */}
+                        <div style={styles.topScoresContainer}>
+                            <div style={styles.topScoresTitle}>Top 5 점수</div>
+                            <div style={styles.topScoresList}>
+                                {topScores.length > 0 ? (
+                                    topScores.map((item, index) => (
+                                        <div
+                                            key={item.id}
+                                            style={{
+                                                ...styles.topScoreItem,
+                                                ...(item.score_1 === score ? styles.currentScoreItem : {})
+                                            }}
+                                        >
+                                            <span style={styles.rank}>{index + 1}위</span>
+                                            <span style={styles.scoreValue}>{item.score_1}점</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={styles.noScores}>기록이 없습니다</div>
+                                )}
+                            </div>
                         </div>
                         <div style={{ display: 'flex', gap: '20px', flexDirection: 'column', alignItems: 'center' }}>
                             <button
@@ -1494,6 +1562,51 @@ const styles = {
         fontSize: '80px',
         fontWeight: 'bold',
         color: '#2196F3'
+    },
+    topScoresContainer: {
+        margin: '40px 0',
+        padding: '30px',
+        backgroundColor: 'white',
+        borderRadius: '20px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        width: '100%',
+        maxWidth: '500px'
+    },
+    topScoresTitle: {
+        fontSize: '28px',
+        color: '#333',
+        marginBottom: '20px',
+        fontWeight: 'bold',
+        textAlign: 'center'
+    },
+    topScoresList: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+    },
+    topScoreItem: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 20px',
+        backgroundColor: '#f5f5f5',
+        borderRadius: '10px',
+        fontSize: '20px'
+    },
+    currentScoreItem: {
+        backgroundColor: '#e3f2fd',
+        border: '2px solid #2196F3',
+        fontWeight: 'bold'
+    },
+    rank: {
+        color: '#666',
+        fontWeight: 'bold'
+    },
+    noScores: {
+        textAlign: 'center',
+        color: '#999',
+        fontSize: '18px',
+        padding: '20px'
     },
     wrongAnswerImageContainer: {
         display: 'flex',

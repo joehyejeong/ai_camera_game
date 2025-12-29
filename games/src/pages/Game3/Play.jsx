@@ -15,6 +15,7 @@ import {
     extractIdFromMessage,
     stopSerialReadLoop
 } from './utils/serial.js'
+import { getHighScore } from '../../utils/scoreManager'
 
 // 기본 게임 크기 (비율 기준)
 const BASE_GAME_WIDTH = 800
@@ -47,6 +48,7 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
     const [waters, setWaters] = useState([])  // 웅덩이와 꽃 배열
     const [lives, setLives] = useState(3)
     const [score, setScore] = useState(0)
+    const [highScore, setHighScore] = useState(0)
     const gameLoopRef = useRef(null)
     const watersRef = useRef([])
     const characterYRef = useRef(0)
@@ -203,6 +205,15 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
         }
 
         initSerial()
+
+        // 최고 점수 로드
+        const loadHighScore = async () => {
+            const result = await getHighScore('score_3')
+            if (result.success) {
+                setHighScore(result.highScore || 0)
+            }
+        }
+        loadHighScore()
 
         return () => {
             console.log('Play 컴포넌트 언마운트 - 시리얼 정리')
@@ -762,10 +773,15 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
                     color: '#fff',
                     fontSize: `${FONT_SIZE}px`,
                     fontWeight: 'bold',
-                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '5px',
+                    alignItems: 'flex-end'
                 }}
             >
-                Score: {score}
+                <div>Score: {score}</div>
+                <div style={{ fontSize: `${FONT_SIZE * 0.8}px`, opacity: 0.8 }}>High: {highScore}</div>
             </div>
 
             {/* 뒤로가기 버튼 */}

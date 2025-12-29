@@ -14,6 +14,7 @@ import {
     extractIdFromMessage,
     stopSerialReadLoop
 } from './utils/serial'
+import { getHighScore } from '../../utils/scoreManager'
 
 // 기본 게임 크기 (비율 기준)
 const BASE_GAME_WIDTH = 800
@@ -42,6 +43,7 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
     const [poops, setPoops] = useState([])
     const [lives, setLives] = useState(3)
     const [score, setScore] = useState(0)
+    const [highScore, setHighScore] = useState(0)
     const gameLoopRef = useRef(null)
     const poopsRef = useRef([])
     const characterXRef = useRef(0)
@@ -288,6 +290,17 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
         }, 50) // 50ms마다 체크
 
         return () => clearInterval(processLatestMessage)
+    }, [])
+
+    // 최고 점수 로드
+    useEffect(() => {
+        const loadHighScore = async () => {
+            const result = await getHighScore('score_2')
+            if (result.success) {
+                setHighScore(result.highScore || 0)
+            }
+        }
+        loadHighScore()
     }, [])
 
     // 시리얼 읽기 루프 시작
@@ -602,10 +615,15 @@ function Play({ onGameOver, serialReaderRef, shouldStopRef, onBack }) {
                     color: '#fff',
                     fontSize: `${FONT_SIZE}px`,
                     fontWeight: 'bold',
-                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '5px',
+                    alignItems: 'flex-end'
                 }}
             >
-                Score: {score}
+                <div>Score: {score}</div>
+                <div style={{ fontSize: `${FONT_SIZE * 0.8}px`, opacity: 0.8 }}>High: {highScore}</div>
             </div>
 
             {/* 뒤로가기 버튼 */}

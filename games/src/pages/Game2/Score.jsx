@@ -1,4 +1,26 @@
+import { useState, useEffect, useRef } from 'react'
+import { getTopScores, saveScore } from '../../utils/scoreManager'
+
 function Score({ score, onRestart, onBackToHome, readerRef, shouldStopRef }) {
+    const [topScores, setTopScores] = useState([])
+    const hasSavedRef = useRef(false) // 중복 저장 방지
+
+    // 점수 저장 및 Top 5 로드 (한 번만 실행)
+    useEffect(() => {
+        if (hasSavedRef.current) return // 이미 저장했으면 스킵
+        
+        const saveAndLoadScores = async () => {
+            hasSavedRef.current = true // 저장 플래그 설정
+            // 점수 저장
+            await saveScore(score, 'score_2')
+            // Top 5 로드
+            const result = await getTopScores('score_2')
+            if (result.success) {
+                setTopScores(result.topScores || [])
+            }
+        }
+        saveAndLoadScores()
+    }, [score])
     const handleRestart = async () => {
         console.log('다시 게임하기 - 시리얼 리더 정리 시작')
 
@@ -111,7 +133,68 @@ function Score({ score, onRestart, onBackToHome, readerRef, shouldStopRef }) {
                     margin: '20px 0'
                 }}
             >
-                Final Score: {score}
+                내 점수: {score}점
+            </div>
+
+            {/* Top 5 점수 표시 */}
+            <div
+                style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    minWidth: '300px',
+                    maxWidth: '500px',
+                    margin: '20px 0'
+                }}
+            >
+                <h2
+                    style={{
+                        fontSize: '28px',
+                        margin: '0 0 20px 0',
+                        textAlign: 'center'
+                    }}
+                >
+                    Top 5 점수
+                </h2>
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                    }}
+                >
+                    {topScores.length > 0 ? (
+                        topScores.map((item, index) => (
+                            <div
+                                key={item.id}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    backgroundColor: item.score_2 === score ? 'rgba(33, 150, 243, 0.3)' : 'rgba(0, 0, 0, 0.2)',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    border: item.score_2 === score ? '2px solid #2196F3' : 'none'
+                                }}
+                            >
+                                <span>{index + 1}위</span>
+                                <span style={{ fontWeight: 'bold' }}>{item.score_2}점</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div
+                            style={{
+                                textAlign: 'center',
+                                color: '#999',
+                                fontSize: '18px',
+                                padding: '20px'
+                            }}
+                        >
+                            기록이 없습니다
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div
